@@ -1,0 +1,73 @@
+—————————————————————————————————————
+VM1
+[Match]
+Name=enp0s1
+
+[Network]
+DHCP=yes
+DNS=8.8.8.8
+
+[Match]
+Name=enp0s2
+
+[Network]
+Address=192.168.100.1/24
+
+
+VM2 
+[Match]
+Name=enp0s1
+
+[Network]
+Address=192.168.100.10/24
+Gateway=192.168.100.1
+DNS=8.8.8.8
+
+VM3
+[Match]
+Name=enp0s1
+
+[Network]
+Address=192.168.100.20/24
+Gateway=192.168.100.1
+DNS=8.8.8.8
+
+
+sudo systemctl restart systemd-networkd
+——————————————————————————————————————
+
+sudo iptables -F
+sudo iptables -t nat -F
+sudo iptables -t mangle -F
+
+
+sudo iptables -A FORWARD -i enp0s2 -o enp0s1 -j ACCEPT
+sudo iptables -A FORWARD -i enp0s1 -o enp0s2 -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+
+sudo iptables -t nat -A POSTROUTING -o enp0s1 -j MASQUERADE
+
+
+sudo iptables -t nat -L -v -n
+
+——————————————————————————————————————
+
+
+sudo iptables -A INPUT -i lo -j ACCEPT
+
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+sudo iptables -A INPUT -p icmp -j ACCEPT
+
+# 4. SSH из внутренней сети SSH из внешней сети 
+sudo iptables -A INPUT -p tcp --dport 22 -s 192.168.100.0/24 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 22 -s 192.168.188.0/24 -j ACCEPT
+
+# 6. Политики DROP — только после разрешающих правил!
+sudo iptables -P INPUT DROP
+sudo iptables -P FORWARD DROP
+sudo iptables -P OUTPUT ACCEPT
+
+# 7. Forwarding
+sudo iptables -A FORWARD -i enp0s2 -o enp0s1 -j ACCEPT
+sudo iptables -A FORWARD -i enp0s1 -o enp0s2 -m state --state ESTABLISHED,RELATED -j ACCEPT
